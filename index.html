@@ -3,187 +3,85 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Neural Scanner v6.0</title>
-  <script src="https://jsdelivr.net"></script>
-  <script src="https://jsdelivr.net"></script>
+  <title>Neural Scanner v4.5</title>
   <style>
     body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: monospace; color: #0f0; user-select: none; }
-    video, canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
-    .hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; box-sizing: border-box; border: 2px solid rgba(0, 255, 0, 0.4); display: flex; flex-direction: column; justify-content: space-between; padding: 20px; z-index: 5; }
-    .status-box { background: rgba(0, 20, 0, 0.85); padding: 15px; border: 1px solid #0f0; border-radius: 5px; text-align: center; font-size: 17px; margin-bottom: 30px; min-height: 70px; display: flex; align-items: center; justify-content: center; line-height: 1.4; }
-    .error-mode { background: rgba(70, 0, 0, 0.9) !important; border-color: #ff2a2a !important; color: #ff2a2a !important; }
+    video { width: 100%; height: 100%; object-fit: cover; }
+    .hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; box-sizing: border-box; border: 2px solid rgba(0, 255, 0, 0.4); display: flex; flex-direction: column; justify-content: space-between; padding: 20px; }
+    .scan-line { position: absolute; width: 100%; height: 3px; background: rgba(0, 255, 0, 0.7); box-shadow: 0 0 10px #0f0; animation: scan 3s infinite linear; }
+    @keyframes scan { 0% { top: 0; } 50% { top: 100%; } 100% { top: 0; } }
+    .status-box { background: rgba(0, 20, 0, 0.8); padding: 15px; border: 1px solid #0f0; border-radius: 5px; text-align: center; font-size: 17px; margin-bottom: 40px; min-height: 60px; display: flex; align-items: center; justify-content: center; }
+    .error-mode { background: rgba(60, 0, 0, 0.85) !important; border-color: #ff2a2a !important; color: #ff2a2a !important; }
+    .controls { position: absolute; bottom: 0; width: 100%; height: 90px; display: flex; z-index: 10; }
+    .btn-zone { flex: 1; opacity: 0; }
   </style>
 </head>
 <body>
 
-  <video id="cam" autoplay playsinline muted></video>
-  <canvas id="overlay"></canvas>
+  <video id="cam" autoplay playsinline></video>
+  <div class="scan-line"></div>
 
-  <div class="hud">
-    <div>[NEURAL-AI v6.0] // АВТО-РЕЖИМ<br>СТАТУС: <span id="signal">ЗАГРУЗКА...</span></div>
-    <div class="status-box" id="output">Инициализация нейросети и камеры...</div>
+  <div class="hud" id="hud">
+    <div>[NEURAL-LINK v4.5] // ПОТОК ДАННЫХ<br>СИГНАЛ МОЗГА: <span id="signal">ОЖИДАНИЕ</span></div>
+    <div class="status-box" id="output">Наведите камеру на человека для захвата мозговых волн...</div>
+  </div>
+
+  <!-- Левый нижний угол = следующая мысль, правый нижний угол = ошибка (фольга) -->
+  <div class="controls">
+    <div class="btn-zone" onclick="nextThought()"></div>
+    <div class="btn-zone" onclick="showError()"></div>
   </div>
 
   <script>
-    // Блоки для случайной сборки мыслей (более 500 уникальных комбинаций)
-    const starts = [
-      "«Блин, срочно нужно",
-      "«Интересно, а что будет, если",
-      "«Надеюсь, никто не догадается, что я хочу",
-      "«Так, надо сделать умное лицо и",
-      "«Походу пора прямо сейчас",
-      "«Почему мне в голову лезет идея",
-      "«Главное не спалиться, пока я думаю, как бы",
-      "«А ведь было бы неплохо сейчас"
+    // ВПИШИТЕ СЮДА 7 ЗАГОТОВЛЕННЫХ ФРАЗ (ПО ОДНОЙ В КАВЫЧКАХ):
+    const thoughts = [
+      "«Где бы сейчас намутить шаурму и не пойти на работу...»",
+      "«Надеюсь, никто не заметил, что я сегодня в разных носках.»",
+      "«Так, надо сделать умное лицо, будто я понимаю, как это работает.»",
+      "«Интересно, а если коту дать валерьянку, он начнет говорить?»",
+      "«Блин, утюг дома точно выключил или опять показалось...»",
+      "«Сейчас бы на море, а не вот это вот всё...»",
+      "«Походу эта штука реально работает, надо срочно думать о чем-то приличном!»"
     ];
 
-    const actions = [
-      "съесть две шаурмы подряд",
-      "уехать в деревню разводить гусей",
-      "проверить, выключен ли дома утюг",
-      "притвориться, что я вообще не при делах",
-      "купить билет в один конец на море",
-      "заказать пиццу и ни с кем не делиться",
-      "пересчитать все носки в шкафу",
-      "научить кота приносить тапочки",
-      "удалить историю браузера от греха подальше"
-    ];
+    let currentIndex = 0;
+    let isScanning = false;
 
-    const endings = [
-      "и сделать вид, что так и задумано.»",
-      "пока никто не смотрит.»",
-      "и больше никогда не ходить на работу.»",
-      "а то эта штука реально всё читает!»",
-      "ради чистого научного эксперимента.»",
-      "потому что мозг уже перегрелся.»",
-      "но я никому в этом не признаюсь.»",
-      "прямо посреди сегодняшнего дня.»"
-    ];
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+      .then(stream => { document.getElementById('cam').srcObject = stream; })
+      .catch(err => { document.getElementById('output').innerText = "Ошибка: разрешите доступ к камере в браузере"; });
 
-    function generateRandomThought() {
-      const s = starts[Math.floor(Math.random() * starts.length)];
-      const a = actions[Math.floor(Math.random() * actions.length)];
-      const e = endings[Math.floor(Math.random() * endings.length)];
-      return ${s} ${a} ${e};
+    function nextThought() {
+      if (isScanning) return;
+      isScanning = true;
+
+      const out = document.getElementById('output');
+      const sig = document.getElementById('signal');
+
+      out.classList.remove('error-mode');
+      sig.innerText = "СКАНИРОВАНИЕ...";
+      out.innerText = "Дешифровка нейронного импульса... [47%]";
+
+      // Пауза 1.5 секунды для эффекта настоящей обработки
+      setTimeout(() => {
+        sig.innerText = "СТАБИЛЬНЫЙ (97.8%)";
+        out.innerText = "МЫСЛЬ ОБНАРУЖЕНА:\n" + thoughts[currentIndex];
+
+        // Переключаем на следующую фразу для следующего человека
+        currentIndex = (currentIndex + 1) % thoughts.length;
+        isScanning = false;
+      }, 1500);
     }
 
-    const video = document.getElementById('cam');
-    const canvas = document.getElementById('overlay');
-    const ctx = canvas.getContext('2d');
-    const out = document.getElementById('output');
-    const sig = document.getElementById('signal');
+    function showError() {
+      isScanning = false;
+      const out = document.getElementById('output');
+      const sig = document.getElementById('signal');
 
-    let model = null;
-    let facePresent = false;
-    let thoughtTimer = null;
-
-    const hiddenCanvas = document.createElement('canvas');
-    const hiddenCtx = hiddenCanvas.getContext('2d');
-
-    async function init() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: "environment" }, 
-          audio: false 
-        });
-        video.srcObject = stream;
-        await new Promise(r => video.onloadedmetadata = r);
-        
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        hiddenCanvas.width = video.videoWidth;
-        hiddenCanvas.height = video.videoHeight;
-        sig.innerText = "ЗАГРУЗКА ИИ...";
-        model = await blazeface.load();
-        
-        sig.innerText = "ПОИСК ОБЪЕКТА";
-        out.innerText = "Наведите камеру на лицо человека...";
-        detectLoop();
-      } catch (err) {
-        sig.innerText = "ОШИБКА ДОСТУПА";
-        out.innerText = "Не удалось включить камеру: " + err.message + ". Откройте сайт по HTTPS.";
-      }
+      out.classList.add('error-mode');
+      sig.innerText = "БЛОКИРОВКА (0.0%)";
+      out.innerText = "⚠️ ОШИБКА: СИГНАЛ ЭКРАНИРОВАН!\nОбнаружен металлический барьер (фольга). Считывание невозможно.";
     }
-
-    function checkFoilHat(topLeft, bottomRight) {
-      const faceWidth = bottomRight[0] - topLeft[0];
-      const faceHeight = bottomRight[1] - topLeft[1];
-      
-      // Зона прямо над лбом (место шапочки из фольги)
-      const hatX = Math.max(0, topLeft[0] + faceWidth * 0.15);
-      const hatY = Math.max(0, topLeft[1] - faceHeight * 0.45);
-      const hatW = Math.min(hiddenCanvas.width - hatX, faceWidth * 0.7);
-      const hatH = Math.min(hiddenCanvas.height - hatY, faceHeight * 0.35);
-
-      if (hatW <= 10 || hatH <= 10) return false;
-
-      hiddenCtx.drawImage(video, 0, 0);
-      const pixels = hiddenCtx.getImageData(hatX, hatY, hatW, hatH).data;
-      
-      let shinyGrayPixels = 0;
-      const totalPixels = pixels.length / 4;
-
-      for (let i = 0; i < pixels.length; i += 4) {
-        const r = pixels[i], g = pixels[i+1], b = pixels[i+2];
-        const brightness = (r + g + b) / 3;
-        const maxDiff = Math.max(Math.abs(r - g), Math.abs(g - b), Math.abs(r - b));
-        
-        // Фильтр металлического блеска (высокая яркость, низкая цветность)
-        if (brightness > 150 && maxDiff < 28) {
-          shinyGrayPixels++;
-        }
-      }
-      return (shinyGrayPixels / totalPixels) > 0.32;
-    }
-
-    async function detectLoop() {
-      if (model && video.readyState === 4) {
-        const predictions = await model.estimateFaces(video, false);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        if (predictions.length > 0) {
-          const face = predictions[0];
-          const [x1, y1] = face.topLeft;
-          const [x2, y2] = face.bottomRight;
-          const hasFoil = checkFoilHat(face.topLeft, face.bottomRight);
-
-          ctx.strokeStyle = hasFoil ? "#ff2a2a" : "#00ff00";
-          ctx.lineWidth = 4;
-          ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
-
-          if (hasFoil) {
-            clearTimeout(thoughtTimer);
-            thoughtTimer = null;
-            facePresent = false;
-            out.classList.add('error-mode');
-            sig.innerText = "БЛОКИРОВКА СИГНАЛА (0%)";
-            out.innerText = "⚠️ ОШИБКА: ОБНАРУЖЕН МЕТАЛЛИЧЕСКИЙ ЭКРАН!\nФольга блокирует считывание мозговых волн.";
-          } else {
-            out.classList.remove('error-mode');
-            if (!facePresent) {
-              facePresent = true;
-              sig.innerText = "ЗАХВАТ ЦЕЛИ...";
-              out.innerText = "Лицо распознано. Дешифровка импульсов...";
-              
-              thoughtTimer = setTimeout(() => {
-                sig.innerText = "СИГНАЛ СТАБИЛЕН (98.4%)";
-                out.innerText = "МЫСЛЬ ОБНАРУЖЕНА:\n" + generateRandomThought();
-              }, 1300);
-            }
-          }
-        } else {
-          facePresent = false;
-          clearTimeout(thoughtTimer);
-          thoughtTimer = null;
-          out.classList.remove('error-mode');
-          sig.innerText = "ПОИСК ОБЪЕКТА";
-          out.innerText = "Наведите камеру на лицо человека...";
-        }
-      }
-      requestAnimationFrame(detectLoop);
-    }
-
-    init();
   </script>
 </body>
 </html>
