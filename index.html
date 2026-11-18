@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neural Scanner v4.2</title>
+  <style>
+    body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: monospace; color: #0f0; }
+    video { width: 100%; height: 100%; object-fit: cover; }
+    .hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; box-sizing: border-box; border: 2px solid rgba(0, 255, 0, 0.4); display: flex; flex-direction: column; justify-content: space-between; padding: 20px; }
+    .scan-line { position: absolute; width: 100%; height: 3px; background: rgba(0, 255, 0, 0.7); box-shadow: 0 0 10px #0f0; animation: scan 3s infinite linear; }
+    @keyframes scan { 0% { top: 0; } 50% { top: 100%; } 100% { top: 0; } }
+    .status-box { background: rgba(0, 20, 0, 0.75); padding: 15px; border: 1px solid #0f0; border-radius: 5px; text-align: center; font-size: 18px; margin-bottom: 40px; }
+    .error-mode { background: rgba(60, 0, 0, 0.85) !important; border-color: #ff2a2a !important; color: #ff2a2a !important; }
+    .controls { position: absolute; bottom: 0; width: 100%; height: 80px; display: flex; z-index: 10; }
+    .btn-zone { flex: 1; opacity: 0; } /* Невидимые зоны нажатия */
+  </style>
+</head>
+<body>
+
+  <video id="cam" autoplay playsinline></video>
+  <div class="scan-line"></div>
+
+  <div class="hud" id="hud">
+    <div>[NEURAL-LINK v4.2] // КАЛИБРОВКА...<br>СИГНАЛ МОЗГА: <span id="signal">ПОИСК</span></div>
+    <div class="status-box" id="output">Наведите камеру на объект для считывания альфа-волн...</div>
+  </div>
+
+  <!-- Невидимые кнопки: левая половина экрана = мысль, правая = ошибка -->
+  <div class="controls">
+    <div class="btn-zone" onclick="showThought()"></div>
+    <div class="btn-zone" onclick="showError()"></div>
+  </div>
+
+  <script>
+    // ВПИШИТЕ СЮДА ЗАГОТОВЛЕННУЮ МЫСЛЬ ДРУГА:
+    const customThought = "ОБНАРУЖЕНА МЫСЛЬ: «Где бы сейчас намутить шаурму и не пойти на работу...»";
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+      .then(stream => { document.getElementById('cam').srcObject = stream; })
+      .catch(err => { document.getElementById('output').innerText = "Разрешите доступ к камере в настройках браузера"; });
+
+    function showThought() {
+      const out = document.getElementById('output');
+      const sig = document.getElementById('signal');
+      out.classList.remove('error-mode');
+      sig.innerText = "СТАБИЛЬНЫЙ (98.4%)";
+      out.innerText = "АНАЛИЗ ЗАВЕРШЕН...\n" + customThought;
+    }
+
+    function showError() {
+      const out = document.getElementById('output');
+      const sig = document.getElementById('signal');
+      out.classList.add('error-mode');
+      sig.innerText = "БЛОКИРОВКА (0.0%)";
+      out.innerText = "⚠️ ОШИБКА: СИГНАЛ ЭКРАНИРОВАН!\nОбнаружен металлический барьер (фольга). Считывание невозможно.";
+    }
+  </script>
+</body>
+</html>
